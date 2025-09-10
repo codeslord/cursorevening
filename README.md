@@ -52,9 +52,9 @@ cd selenium-mcp-server
 pip install -e ".[dev,test,yaml]"
 ```
 
-## 🤖 Claude Desktop Integration - Quick Setup
+## 🤖 Claude Integration - Quick Setup
 
-### TL;DR - Get Started in 3 Steps:
+### Claude Desktop (GUI) - TL;DR:
 
 1. **Install:** `pip install -e .`
 2. **Configure Claude:** Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -70,6 +70,12 @@ pip install -e ".[dev,test,yaml]"
    }
    ```
 3. **Restart Claude** and ask: *"Start a browser and navigate to google.com"*
+
+### Claude CLI (claude-code) - TL;DR:
+
+1. **Install:** `pip install -e .`
+2. **Start server:** `python selenium_mcp_server.py`
+3. **Connect Claude CLI:** `claude-code --mcp-server stdio://python selenium_mcp_server.py`
 
 ## 🏃 Quick Start
 
@@ -317,6 +323,314 @@ Once configured, try these example prompts:
 #### Performance Testing:
 ```
 "Measure the page load time for https://example.com and take a screenshot. Also check if there are any JavaScript errors on the page."
+```
+
+## 🖥️ Claude CLI (claude-code) Integration
+
+### Setup Methods
+
+#### Method 1: Direct Command Line Usage (Quickest)
+
+**Start the server and connect in one command:**
+```bash
+# Basic usage
+claude-code --mcp-server stdio://python selenium_mcp_server.py
+
+# With environment variables
+SELENIUM_HEADLESS=false SELENIUM_LOG_LEVEL=INFO claude-code --mcp-server stdio://python selenium_mcp_server.py
+
+# With absolute path (recommended for reliability)
+claude-code --mcp-server stdio:///usr/bin/python3 /path/to/selenium-mcp-server/selenium_mcp_server.py
+```
+
+#### Method 2: Using Configuration File
+
+**Step 1: Create MCP Configuration Directory**
+```bash
+mkdir -p ~/.config/claude-code
+```
+
+**Step 2: Create MCP Servers Configuration**
+Create `~/.config/claude-code/mcp_servers.json`:
+
+```json
+{
+  "servers": {
+    "selenium": {
+      "command": "python",
+      "args": ["selenium_mcp_server.py"],
+      "env": {
+        "SELENIUM_LOG_LEVEL": "INFO",
+        "SELENIUM_HEADLESS": "false",
+        "SELENIUM_DEFAULT_TIMEOUT": "10000",
+        "SELENIUM_MAX_SESSIONS": "3"
+      }
+    }
+  }
+}
+```
+
+**Step 3: Start Claude CLI with Configuration**
+```bash
+claude-code --mcp-config ~/.config/claude-code/mcp_servers.json
+```
+
+#### Method 3: Session-based Usage (Two Terminals)
+
+**Terminal 1 - Start the MCP Server:**
+```bash
+cd /path/to/selenium-mcp-server
+python selenium_mcp_server.py
+```
+
+**Terminal 2 - Connect Claude CLI:**
+```bash
+claude-code --mcp-server stdio://python selenium_mcp_server.py
+```
+
+### Environment Configuration for Claude CLI
+
+#### Option 1: Command Line Environment Variables
+```bash
+# Set environment variables before starting
+export SELENIUM_DEFAULT_TIMEOUT=15000
+export SELENIUM_MAX_SESSIONS=5
+export SELENIUM_LOG_LEVEL=DEBUG
+export SELENIUM_SCREENSHOT_DIR=/Users/yourusername/selenium-screenshots
+export SELENIUM_HEADLESS=false
+
+# Then start Claude CLI
+claude-code --mcp-server stdio://python selenium_mcp_server.py
+```
+
+#### Option 2: Inline Environment Variables
+```bash
+# Set variables inline
+SELENIUM_DEFAULT_TIMEOUT=15000 SELENIUM_LOG_LEVEL=DEBUG claude-code --mcp-server stdio://python selenium_mcp_server.py
+```
+
+#### Option 3: Configuration File with Environment Variables
+Update your `~/.config/claude-code/mcp_servers.json`:
+
+```json
+{
+  "servers": {
+    "selenium": {
+      "command": "python",
+      "args": ["selenium_mcp_server.py"],
+      "env": {
+        "SELENIUM_DEFAULT_TIMEOUT": "15000",
+        "SELENIUM_MAX_SESSIONS": "5",
+        "SELENIUM_LOG_LEVEL": "DEBUG",
+        "SELENIUM_SCREENSHOT_DIR": "/Users/yourusername/selenium-screenshots",
+        "SELENIUM_HEADLESS": "false",
+        "SELENIUM_ALLOW_FILE_UPLOADS": "true",
+        "SELENIUM_MAX_FILE_SIZE_MB": "10"
+      }
+    }
+  }
+}
+```
+
+### Using with Claude CLI - Step by Step
+
+#### Verify Connection
+Once Claude CLI starts, test the connection:
+```bash
+# In Claude CLI prompt
+> Can you list the available browser automation tools?
+> Start a Chrome browser session for me
+```
+
+#### Basic Web Automation Example
+
+**In your Claude CLI terminal session:**
+```bash
+> I want to automate browsing to Google and searching for "Python automation". Can you help me do this step by step using the browser automation tools?
+```
+
+**Claude CLI will execute the MCP tools:**
+
+1. **Start Browser Session**
+   ```
+   🔧 start_browser(browser="chrome", options={"headless": false, "window_size": [1920, 1080]})
+   ✅ Started chrome browser session: uuid-1234
+   ```
+
+2. **Navigate to Google**
+   ```
+   🔧 navigate(url="https://google.com")
+   ✅ Navigated to: https://google.com
+   ```
+
+3. **Find Search Box and Enter Query**
+   ```
+   🔧 find_element(by="name", value="q", timeout=10000)
+   ✅ Element found: input
+   
+   🔧 send_keys(by="name", value="q", text="Python automation")
+   ✅ Sent keys to element: 'Python automation'
+   ```
+
+4. **Submit Search**
+   ```
+   🔧 press_key(key="ENTER")
+   ✅ Pressed key: ENTER
+   ```
+
+5. **Take Screenshot**
+   ```
+   🔧 take_screenshot()
+   ✅ Screenshot saved: screenshots/screenshot_20240901_143022.png
+   ```
+
+6. **Clean Up**
+   ```
+   🔧 close_session()
+   ✅ Session closed successfully
+   ```
+
+#### Advanced Example: Form Automation
+
+**In Claude CLI terminal:**
+```bash
+> I need you to fill out a contact form on example.com. The form has fields for name, email, and message. Use "John Doe", "john@example.com", and "Hello from automation!" respectively.
+```
+
+**Claude CLI execution:**
+```bash
+🔧 start_browser(browser="chrome")
+✅ Started chrome browser session
+
+🔧 navigate(url="https://example.com/contact")
+✅ Navigated to: https://example.com/contact
+
+🔧 send_keys(by="id", value="name", text="John Doe")
+✅ Sent keys to element: 'John Doe'
+
+🔧 send_keys(by="id", value="email", text="john@example.com")
+✅ Sent keys to element: 'john@example.com'
+
+🔧 send_keys(by="id", value="message", text="Hello from automation!")
+✅ Sent keys to element: 'Hello from automation!'
+
+🔧 click_element(by="css", value="input[type='submit']")
+✅ Element clicked successfully
+
+🔧 take_screenshot(output_path="form_submitted.png")
+✅ Screenshot saved: form_submitted.png
+
+🔧 close_session()
+✅ Session closed successfully
+```
+
+### Quick Test Commands for Claude CLI
+
+1. **Test Browser Start:**
+   ```bash
+   > Start a Chrome browser session for me
+   ```
+
+2. **Test Navigation:**
+   ```bash
+   > Navigate to https://httpbin.org and take a screenshot
+   ```
+
+3. **Test Element Interaction:**
+   ```bash
+   > Go to https://httpbin.org/forms/post and fill out the form with test data
+   ```
+
+4. **Test Health Check:**
+   ```bash
+   > Check the health status of the browser automation server
+   ```
+
+### Troubleshooting Claude CLI Integration
+
+#### Common Issues:
+
+**🔧 Issue: "MCP server not responding"**
+- ✅ **Solution**: Ensure the server script is executable: `chmod +x selenium_mcp_server.py`
+- ✅ Check Python path: use absolute path like `/usr/bin/python3`
+- ✅ Verify server starts independently: `python selenium_mcp_server.py`
+
+**🔧 Issue: "Connection refused"**
+- ✅ **Solution**: Start server in separate terminal first
+- ✅ Check for port conflicts
+- ✅ Use stdio:// protocol for direct connection
+
+**🔧 Issue: Environment variables not working**
+- ✅ **Solution**: Use configuration file method instead
+- ✅ Export variables in the same shell session
+- ✅ Check variable names are correct (SELENIUM_*)
+
+**🔧 Issue: "Command not found: claude-code"**
+- ✅ **Solution**: Install Claude CLI: `pip install claude-cli`
+- ✅ Verify installation: `claude-code --version`
+- ✅ Check PATH includes Python scripts directory
+
+#### Debug Mode for Claude CLI:
+```bash
+# Enable debug logging
+SELENIUM_LOG_LEVEL=DEBUG SELENIUM_LOG_CONSOLE=true claude-code --mcp-server stdio://python selenium_mcp_server.py
+```
+
+### Claude CLI vs Claude Desktop
+
+| Feature | Claude CLI | Claude Desktop |
+|---------|------------|----------------|
+| **Setup** | Command line | JSON config file |
+| **Environment** | Terminal/shell | GUI application |
+| **Configuration** | CLI args or config file | JSON configuration |
+| **Output** | Terminal text with emojis | Rich UI interface |
+| **Screenshots** | File paths returned | Embedded images |
+| **Session Management** | Manual start/stop | Automatic |
+| **Best For** | Scripting, automation, CI/CD | Interactive use, development |
+
+### Example Scripts for Claude CLI
+
+#### Batch Automation Script
+```bash
+#!/bin/bash
+# batch_automation.sh
+
+export SELENIUM_HEADLESS=true
+export SELENIUM_LOG_LEVEL=INFO
+
+echo "Starting automated testing session..."
+claude-code --mcp-server stdio://python selenium_mcp_server.py << 'EOF'
+Please run these automation tasks:
+1. Navigate to https://httpbin.org and verify the page loads
+2. Test the forms functionality 
+3. Take screenshots of each step
+4. Provide a summary report
+EOF
+```
+
+#### CI/CD Integration Example
+```yaml
+# .github/workflows/selenium-tests.yml
+name: Selenium MCP Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install -e .
+      - name: Run automation tests
+        run: |
+          export SELENIUM_HEADLESS=true
+          claude-code --mcp-server stdio://python selenium_mcp_server.py << 'EOF'
+          Run comprehensive website testing on our staging environment
+          EOF
 ```
 
 ## 🛠️ MCP Tools Reference
