@@ -77,6 +77,25 @@ pip install -e ".[dev,test,yaml]"
 2. **Start server:** `python selenium_mcp_server.py`
 3. **Connect Claude CLI:** `claude-code --mcp-server stdio://python selenium_mcp_server.py`
 
+### Cursor IDE - TL;DR:
+
+1. **Install:** `pip install -e .`
+2. **Configure Cursor:** Add to Cursor settings or `.cursorrules`:
+   ```json
+   {
+     "mcp": {
+       "servers": {
+         "selenium": {
+           "command": "python",
+           "args": ["-m", "selenium_mcp_server"],
+           "env": {"SELENIUM_HEADLESS": "false"}
+         }
+       }
+     }
+   }
+   ```
+3. **Use in Cursor:** Ask Cursor AI: *"Start a browser and navigate to google.com"*
+
 ## 🏃 Quick Start
 
 ### 1. Installation & Setup
@@ -631,6 +650,406 @@ jobs:
           claude-code --mcp-server stdio://python selenium_mcp_server.py << 'EOF'
           Run comprehensive website testing on our staging environment
           EOF
+```
+
+## 💻 Cursor IDE Integration
+
+### Setup Methods
+
+#### Method 1: Cursor Settings Configuration (Recommended)
+
+**Step 1: Open Cursor Settings**
+- Open Cursor IDE
+- Press `Cmd/Ctrl + ,` to open settings
+- Navigate to "Extensions" or search for "MCP"
+
+**Step 2: Configure MCP Server**
+Add to your Cursor settings (`settings.json`):
+
+```json
+{
+  "mcp.servers": {
+    "selenium": {
+      "command": "python",
+      "args": ["-m", "selenium_mcp_server"],
+      "cwd": "/path/to/selenium-mcp-server",
+      "env": {
+        "SELENIUM_LOG_LEVEL": "INFO",
+        "SELENIUM_HEADLESS": "false",
+        "SELENIUM_DEFAULT_TIMEOUT": "10000",
+        "SELENIUM_MAX_SESSIONS": "3"
+      }
+    }
+  }
+}
+```
+
+#### Method 2: Project-Level Configuration
+
+**Step 1: Create `.cursorrules` File**
+In your project root, create `.cursorrules`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "selenium": {
+        "command": "python",
+        "args": ["selenium_mcp_server.py"],
+        "env": {
+          "SELENIUM_LOG_LEVEL": "INFO",
+          "SELENIUM_HEADLESS": "false",
+          "SELENIUM_DEFAULT_TIMEOUT": "10000"
+        }
+      }
+    }
+  },
+  "rules": [
+    "When asked to automate browser tasks, use the selenium MCP server tools",
+    "Always start with start_browser before other selenium operations",
+    "Take screenshots after important actions for verification",
+    "Close browser sessions when automation is complete"
+  ]
+}
+```
+
+#### Method 3: Workspace Configuration
+
+**Step 1: Create Workspace Settings**
+Create `.vscode/settings.json` (Cursor uses VS Code format):
+
+```json
+{
+  "mcp.servers": {
+    "selenium": {
+      "command": "/usr/bin/python3",
+      "args": ["/absolute/path/to/selenium_mcp_server.py"],
+      "env": {
+        "SELENIUM_LOG_LEVEL": "DEBUG",
+        "SELENIUM_HEADLESS": "false",
+        "SELENIUM_SCREENSHOT_DIR": "${workspaceFolder}/screenshots"
+      }
+    }
+  }
+}
+```
+
+### Environment Configuration for Cursor
+
+#### Global Environment Variables
+Create a `.env` file in your project:
+
+```bash
+# Selenium MCP Configuration
+SELENIUM_DEFAULT_TIMEOUT=15000
+SELENIUM_MAX_SESSIONS=5
+SELENIUM_LOG_LEVEL=INFO
+SELENIUM_SCREENSHOT_DIR=./screenshots
+SELENIUM_HEADLESS=false
+SELENIUM_ALLOW_FILE_UPLOADS=true
+SELENIUM_MAX_FILE_SIZE_MB=10
+```
+
+#### Advanced Configuration with Multiple Environments
+
+```json
+{
+  "mcp.servers": {
+    "selenium-dev": {
+      "command": "python",
+      "args": ["-m", "selenium_mcp_server"],
+      "env": {
+        "SELENIUM_LOG_LEVEL": "DEBUG",
+        "SELENIUM_HEADLESS": "false",
+        "SELENIUM_DEFAULT_TIMEOUT": "15000"
+      }
+    },
+    "selenium-test": {
+      "command": "python", 
+      "args": ["-m", "selenium_mcp_server"],
+      "env": {
+        "SELENIUM_LOG_LEVEL": "INFO",
+        "SELENIUM_HEADLESS": "true",
+        "SELENIUM_DEFAULT_TIMEOUT": "10000"
+      }
+    }
+  }
+}
+```
+
+### Using with Cursor AI - Step by Step
+
+#### Verify Installation
+
+**Step 1: Check MCP Connection**
+- Open Cursor AI chat panel
+- Look for MCP indicator (usually a small icon or status)
+- Ask: "What MCP servers are available?"
+
+**Step 2: Test Basic Functionality**
+Ask Cursor AI:
+```
+Can you list the available browser automation tools from the selenium MCP server?
+```
+
+#### Basic Web Automation in Cursor
+
+**Example 1: Simple Navigation**
+```
+@selenium Please start a Chrome browser and navigate to https://example.com, then take a screenshot
+```
+
+**Cursor AI Response:**
+```
+I'll help you start a browser session and navigate to the website.
+
+🔧 Starting browser session...
+✅ Browser started successfully (session: abc-123)
+
+🔧 Navigating to https://example.com...
+✅ Navigation completed
+
+🔧 Taking screenshot...
+✅ Screenshot saved: screenshots/example_20240901_143022.png
+
+The browser is now open at example.com and I've captured a screenshot for you.
+```
+
+**Example 2: Form Automation**
+```
+@selenium I need you to fill out the contact form at https://httpbin.org/forms/post. Use the following data:
+- Customer name: "John Doe"  
+- Telephone: "555-0123"
+- Email: "john@example.com"
+- Comments: "Testing automation with Cursor"
+```
+
+**Example 3: Web Scraping Task**
+```
+@selenium Please scrape the titles and prices from the first 5 products on https://books.toscrape.com and format the results as a markdown table
+```
+
+#### Advanced Cursor AI Prompts
+
+**Testing Workflow:**
+```
+@selenium Create a comprehensive test for the login functionality at https://the-internet.herokuapp.com/login:
+1. Navigate to the page
+2. Enter username: "tomsmith" 
+3. Enter password: "SuperSecretPassword!"
+4. Submit the form
+5. Verify successful login by checking for success message
+6. Take a screenshot of the result
+7. Provide a test report
+```
+
+**Performance Analysis:**
+```
+@selenium Analyze the performance of https://example.com:
+1. Navigate to the page
+2. Measure page load time using JavaScript
+3. Check for any console errors
+4. Take a screenshot
+5. Provide a performance summary report
+```
+
+**Data Extraction:**
+```
+@selenium Extract all product information from https://books.toscrape.com including:
+- Product titles
+- Prices  
+- Availability status
+- Star ratings
+Save the data as a CSV file and provide a summary
+```
+
+### Cursor-Specific Features
+
+#### Inline Code Generation
+Ask Cursor AI to generate automation scripts:
+```
+@selenium Generate a Python script that uses the selenium MCP tools to:
+1. Start a browser session
+2. Navigate to a product page
+3. Add items to cart
+4. Proceed to checkout
+5. Fill shipping information
+6. Take screenshots at each step
+```
+
+#### Project Integration
+Use Cursor's project understanding:
+```
+@selenium Based on my current project structure, create browser tests for the forms in my web application. Test all input validation and submission workflows.
+```
+
+#### Code Explanation with Context
+```
+@selenium Explain how I can integrate selenium automation into my existing test suite. Show me how to use the MCP tools within pytest fixtures.
+```
+
+### Troubleshooting Cursor Integration
+
+#### Common Issues
+
+**🔧 Issue: MCP server not detected**
+- ✅ **Solution**: Restart Cursor IDE completely
+- ✅ Check that the JSON syntax in settings is valid
+- ✅ Verify Python path and script location
+- ✅ Check Cursor's output panel for MCP connection logs
+
+**🔧 Issue: "Python command not found"**
+- ✅ **Solution**: Use absolute Python path: `/usr/bin/python3`
+- ✅ Verify Python installation: `which python`
+- ✅ Check virtual environment activation
+
+**🔧 Issue: Scripts not executable**
+- ✅ **Solution**: Make script executable: `chmod +x selenium_mcp_server.py`
+- ✅ Verify script runs independently: `python selenium_mcp_server.py`
+
+**🔧 Issue: Environment variables not working**
+- ✅ **Solution**: Check `.env` file is in correct location
+- ✅ Restart Cursor after changing environment settings
+- ✅ Use absolute paths in environment variables
+
+#### Debug Mode for Cursor
+
+Enable debug logging by updating your Cursor settings:
+
+```json
+{
+  "mcp.servers": {
+    "selenium": {
+      "command": "python",
+      "args": ["-m", "selenium_mcp_server"],
+      "env": {
+        "SELENIUM_LOG_LEVEL": "DEBUG",
+        "SELENIUM_LOG_CONSOLE": "true"
+      }
+    }
+  },
+  "mcp.debug": true
+}
+```
+
+### Cursor Workflow Examples
+
+#### Test-Driven Development Workflow
+
+**Step 1: Create Test Specification**
+```
+@selenium Create a test plan for our e-commerce checkout flow:
+1. Product selection
+2. Cart management  
+3. User authentication
+4. Payment processing
+5. Order confirmation
+```
+
+**Step 2: Generate Test Implementation**
+```
+@selenium Implement the test plan using selenium MCP tools. Create both positive and negative test cases.
+```
+
+**Step 3: Execute and Report**
+```
+@selenium Run the checkout tests and generate a detailed report with screenshots and performance metrics.
+```
+
+#### Continuous Integration Workflow
+
+Create `.cursor/workflows/selenium-tests.yml`:
+
+```yaml
+name: Selenium MCP Tests
+on: 
+  - manual
+  - git_push
+
+steps:
+  - name: Setup Environment
+    run: |
+      pip install -e .
+      export SELENIUM_HEADLESS=true
+      
+  - name: Run Browser Tests  
+    cursor_ai: |
+      @selenium Run comprehensive browser tests for our application:
+      1. Test all critical user flows
+      2. Verify responsive design on different screen sizes
+      3. Check accessibility compliance
+      4. Generate test report with screenshots
+      
+  - name: Performance Analysis
+    cursor_ai: |
+      @selenium Analyze performance across key pages and generate optimization recommendations
+```
+
+#### Development Workflow Integration
+
+**Code Review Assistant:**
+```
+@selenium Review this HTML form and create automated tests to verify:
+1. All validation rules work correctly
+2. Form submission handles errors gracefully  
+3. Success/error messages display properly
+4. Accessibility features function correctly
+```
+
+**Bug Reproduction:**
+```
+@selenium Help me reproduce this bug report:
+"When users try to submit the contact form with invalid email, the error message doesn't appear"
+
+Create a test that reproduces this issue and verify the fix.
+```
+
+### Cursor vs Other Integrations
+
+| Feature | Cursor IDE | Claude Desktop | Claude CLI |
+|---------|------------|----------------|-------------|
+| **Setup** | IDE settings/workspace config | JSON config file | Command line |
+| **Environment** | Integrated development | GUI application | Terminal/shell |
+| **AI Integration** | Built-in AI assistant | Standalone chat | Terminal chat |
+| **Code Generation** | Inline with context | Separate interface | Text-based output |
+| **Project Awareness** | Full project context | Limited context | No project context |
+| **Screenshot Display** | Embedded in IDE | Rich UI interface | File paths only |
+| **Workflow Integration** | Native IDE workflows | External tool | Scripting/automation |
+| **Best For** | Development, debugging, code generation | Interactive automation | CI/CD, scripting |
+
+### Advanced Cursor Features
+
+#### Custom Commands
+Create custom Cursor commands for common automation tasks:
+
+```json
+{
+  "cursor.customCommands": {
+    "selenium.test.current.page": {
+      "title": "Test Current Page",
+      "command": "@selenium Test the currently open webpage for basic functionality, accessibility, and performance"
+    },
+    "selenium.generate.tests": {
+      "title": "Generate Tests",
+      "command": "@selenium Generate comprehensive tests for the selected HTML/component"
+    },
+    "selenium.debug.element": {
+      "title": "Debug Element",
+      "command": "@selenium Help debug why the selected element selector is not working in automation"
+    }
+  }
+}
+```
+
+#### Smart Context Integration
+Cursor can use your current code context:
+
+```
+@selenium Looking at my current React component, generate browser tests that verify:
+1. Component renders correctly
+2. User interactions work as expected
+3. Props are handled properly
+4. Error states display correctly
 ```
 
 ## 🛠️ MCP Tools Reference
