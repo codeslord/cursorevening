@@ -188,6 +188,8 @@ ROI: 28,080% (assuming minimal setup cost)
 
 ## 🚀 Features
 
+**🔥 Now Powered by FastMCP!** This server has been modernized with the latest FastMCP framework for optimal performance, simplified development, and enhanced reliability. All 21 tools are built with FastMCP's declarative approach.
+
 ### Core Browser Automation
 - **Multi-browser Support**: Chrome, Firefox, Edge with automatic driver management
 - **Session Management**: Concurrent browser instances with intelligent resource management
@@ -214,35 +216,57 @@ ROI: 28,080% (assuming minimal setup cost)
 
 ### Quick Install
 ```bash
-pip install selenium-mcp-server
+git clone https://github.com/example/selenium-mcp-server.git
+cd selenium-mcp-server
+pip install -r requirements.txt
 ```
 
-### From Source
+### Development Installation with Virtual Environment
 ```bash
 git clone https://github.com/example/selenium-mcp-server.git
 cd selenium-mcp-server
-pip install -e .
+
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Development Installation
+### Verify Installation
 ```bash
-git clone https://github.com/example/selenium-mcp-server.git
-cd selenium-mcp-server
-pip install -e ".[dev,test,yaml]"
+# Test the FastMCP server
+python -c "from selenium_mcp_server.main import mcp; print('✅ FastMCP server ready')"
+
+# Check available tools
+python -c "
+import asyncio
+from selenium_mcp_server.main import mcp
+
+async def show_tools():
+    tools = await mcp.get_tools()
+    print(f'Available tools: {len(tools)}')
+    for name in sorted(tools.keys())[:5]:
+        print(f'  - {name}')
+    print('  ... and more')
+
+asyncio.run(show_tools())
+"
 ```
 
 ## 🤖 Claude Integration - Quick Setup
 
 ### Claude Desktop (GUI) - TL;DR:
 
-1. **Install:** `pip install -e .`
+1. **Install:** `pip install -r requirements.txt`
 2. **Configure Claude:** Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
    ```json
    {
      "mcpServers": {
        "selenium": {
          "command": "python",
-         "args": ["-m", "selenium_mcp_server"],
+         "args": ["-m", "selenium_mcp_server.main"],
          "env": {"SELENIUM_HEADLESS": "false"}
        }
      }
@@ -252,13 +276,13 @@ pip install -e ".[dev,test,yaml]"
 
 ### Claude CLI (claude-code) - TL;DR:
 
-1. **Install:** `pip install -e .`
-2. **Start server:** `python selenium_mcp_server.py`
-3. **Connect Claude CLI:** `claude-code --mcp-server stdio://python selenium_mcp_server.py`
+1. **Install:** `pip install -r requirements.txt`
+2. **Start server:** `python -m selenium_mcp_server.main`
+3. **Connect Claude CLI:** `claude-code --mcp-server stdio://python -m selenium_mcp_server.main`
 
 ### Cursor IDE - TL;DR:
 
-1. **Install:** `pip install -e .`
+1. **Install:** `pip install -r requirements.txt`
 2. **Configure Cursor:** Add to Cursor settings or `.cursorrules`:
    ```json
    {
@@ -266,7 +290,7 @@ pip install -e ".[dev,test,yaml]"
        "servers": {
          "selenium": {
            "command": "python",
-           "args": ["-m", "selenium_mcp_server"],
+           "args": ["-m", "selenium_mcp_server.main"],
            "env": {"SELENIUM_HEADLESS": "false"}
          }
        }
@@ -280,7 +304,10 @@ pip install -e ".[dev,test,yaml]"
 ### 1. Installation & Setup
 ```bash
 # Install the server
-pip install -e .
+pip install -r requirements.txt
+
+# Verify FastMCP installation
+python -c "from selenium_mcp_server.main import mcp; print('FastMCP server ready!')"
 
 # Install browser drivers (Chrome recommended)
 # Drivers are automatically managed by webdriver-manager
@@ -311,7 +338,7 @@ Add this to your `claude_desktop_config.json`:
       "command": "python",
       "args": [
         "-m", 
-        "selenium_mcp_server"
+        "selenium_mcp_server.main"
       ],
       "env": {
         "SELENIUM_LOG_LEVEL": "INFO",
@@ -333,8 +360,9 @@ For more reliability, use the absolute path to your Python installation:
     "selenium": {
       "command": "/usr/bin/python3",
       "args": [
-        "/Users/yourusername/path/to/selenium-mcp-server/selenium_mcp_server.py"
+        "-m", "selenium_mcp_server.main"
       ],
+      "cwd": "/Users/yourusername/path/to/selenium-mcp-server",
       "env": {
         "SELENIUM_LOG_LEVEL": "INFO",
         "SELENIUM_HEADLESS": "false",
@@ -422,7 +450,7 @@ You can customize the server behavior through environment variables in the Claud
   "mcpServers": {
     "selenium": {
       "command": "python",
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "env": {
         "SELENIUM_DEFAULT_TIMEOUT": "15000",
         "SELENIUM_MAX_SESSIONS": "5",
@@ -489,7 +517,7 @@ You can customize the server behavior through environment variables in the Claud
   "mcpServers": {
     "selenium": {
       "command": "python",
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "env": {
         "SELENIUM_LOG_LEVEL": "DEBUG",
         "SELENIUM_LOG_CONSOLE": "true"
@@ -532,10 +560,10 @@ Once configured, try these example prompts:
 **Start the server and connect in one command:**
 ```bash
 # Basic usage
-claude-code --mcp-server stdio://python selenium_mcp_server.py
+claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 
 # With environment variables
-SELENIUM_HEADLESS=false SELENIUM_LOG_LEVEL=INFO claude-code --mcp-server stdio://python selenium_mcp_server.py
+SELENIUM_HEADLESS=false SELENIUM_LOG_LEVEL=INFO claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 
 # With absolute path (recommended for reliability)
 claude-code --mcp-server stdio:///usr/bin/python3 /path/to/selenium-mcp-server/selenium_mcp_server.py
@@ -556,7 +584,7 @@ Create `~/.config/claude-code/mcp_servers.json`:
   "servers": {
     "selenium": {
       "command": "python",
-      "args": ["selenium_mcp_server.py"],
+      "args": ["selenium_mcp_server.main"],
       "env": {
         "SELENIUM_LOG_LEVEL": "INFO",
         "SELENIUM_HEADLESS": "false",
@@ -578,12 +606,12 @@ claude-code --mcp-config ~/.config/claude-code/mcp_servers.json
 **Terminal 1 - Start the MCP Server:**
 ```bash
 cd /path/to/selenium-mcp-server
-python selenium_mcp_server.py
+python -m selenium_mcp_server.main
 ```
 
 **Terminal 2 - Connect Claude CLI:**
 ```bash
-claude-code --mcp-server stdio://python selenium_mcp_server.py
+claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 ```
 
 ### Environment Configuration for Claude CLI
@@ -598,13 +626,13 @@ export SELENIUM_SCREENSHOT_DIR=/Users/yourusername/selenium-screenshots
 export SELENIUM_HEADLESS=false
 
 # Then start Claude CLI
-claude-code --mcp-server stdio://python selenium_mcp_server.py
+claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 ```
 
 #### Option 2: Inline Environment Variables
 ```bash
 # Set variables inline
-SELENIUM_DEFAULT_TIMEOUT=15000 SELENIUM_LOG_LEVEL=DEBUG claude-code --mcp-server stdio://python selenium_mcp_server.py
+SELENIUM_DEFAULT_TIMEOUT=15000 SELENIUM_LOG_LEVEL=DEBUG claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 ```
 
 #### Option 3: Configuration File with Environment Variables
@@ -615,7 +643,7 @@ Update your `~/.config/claude-code/mcp_servers.json`:
   "servers": {
     "selenium": {
       "command": "python",
-      "args": ["selenium_mcp_server.py"],
+      "args": ["selenium_mcp_server.main"],
       "env": {
         "SELENIUM_DEFAULT_TIMEOUT": "15000",
         "SELENIUM_MAX_SESSIONS": "5",
@@ -751,7 +779,7 @@ Once Claude CLI starts, test the connection:
 **🔧 Issue: "MCP server not responding"**
 - ✅ **Solution**: Ensure the server script is executable: `chmod +x selenium_mcp_server.py`
 - ✅ Check Python path: use absolute path like `/usr/bin/python3`
-- ✅ Verify server starts independently: `python selenium_mcp_server.py`
+- ✅ Verify server starts independently: `python -m selenium_mcp_server.main`
 
 **🔧 Issue: "Connection refused"**
 - ✅ **Solution**: Start server in separate terminal first
@@ -771,7 +799,7 @@ Once Claude CLI starts, test the connection:
 #### Debug Mode for Claude CLI:
 ```bash
 # Enable debug logging
-SELENIUM_LOG_LEVEL=DEBUG SELENIUM_LOG_CONSOLE=true claude-code --mcp-server stdio://python selenium_mcp_server.py
+SELENIUM_LOG_LEVEL=DEBUG SELENIUM_LOG_CONSOLE=true claude-code --mcp-server stdio://python -m selenium_mcp_server.main
 ```
 
 ### Claude CLI vs Claude Desktop
@@ -797,7 +825,7 @@ export SELENIUM_HEADLESS=true
 export SELENIUM_LOG_LEVEL=INFO
 
 echo "Starting automated testing session..."
-claude-code --mcp-server stdio://python selenium_mcp_server.py << 'EOF'
+claude-code --mcp-server stdio://python -m selenium_mcp_server.main << 'EOF'
 Please run these automation tasks:
 1. Navigate to https://httpbin.org and verify the page loads
 2. Test the forms functionality 
@@ -826,7 +854,7 @@ jobs:
       - name: Run automation tests
         run: |
           export SELENIUM_HEADLESS=true
-          claude-code --mcp-server stdio://python selenium_mcp_server.py << 'EOF'
+          claude-code --mcp-server stdio://python -m selenium_mcp_server.main << 'EOF'
           Run comprehensive website testing on our staging environment
           EOF
 ```
@@ -850,7 +878,7 @@ Add to your Cursor settings (`settings.json`):
   "mcp.servers": {
     "selenium": {
       "command": "python",
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "cwd": "/path/to/selenium-mcp-server",
       "env": {
         "SELENIUM_LOG_LEVEL": "INFO",
@@ -874,7 +902,7 @@ In your project root, create `.cursorrules`:
     "servers": {
       "selenium": {
         "command": "python",
-        "args": ["selenium_mcp_server.py"],
+        "args": ["selenium_mcp_server.main"],
         "env": {
           "SELENIUM_LOG_LEVEL": "INFO",
           "SELENIUM_HEADLESS": "false",
@@ -936,7 +964,7 @@ SELENIUM_MAX_FILE_SIZE_MB=10
   "mcp.servers": {
     "selenium-dev": {
       "command": "python",
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "env": {
         "SELENIUM_LOG_LEVEL": "DEBUG",
         "SELENIUM_HEADLESS": "false",
@@ -945,7 +973,7 @@ SELENIUM_MAX_FILE_SIZE_MB=10
     },
     "selenium-test": {
       "command": "python", 
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "env": {
         "SELENIUM_LOG_LEVEL": "INFO",
         "SELENIUM_HEADLESS": "true",
@@ -1084,7 +1112,7 @@ Use Cursor's project understanding:
 
 **🔧 Issue: Scripts not executable**
 - ✅ **Solution**: Make script executable: `chmod +x selenium_mcp_server.py`
-- ✅ Verify script runs independently: `python selenium_mcp_server.py`
+- ✅ Verify script runs independently: `python -m selenium_mcp_server.main`
 
 **🔧 Issue: Environment variables not working**
 - ✅ **Solution**: Check `.env` file is in correct location
@@ -1100,7 +1128,7 @@ Enable debug logging by updating your Cursor settings:
   "mcp.servers": {
     "selenium": {
       "command": "python",
-      "args": ["-m", "selenium_mcp_server"],
+      "args": ["-m", "selenium_mcp_server.main"],
       "env": {
         "SELENIUM_LOG_LEVEL": "DEBUG",
         "SELENIUM_LOG_CONSOLE": "true"
@@ -1233,75 +1261,61 @@ Cursor can use your current code context:
 
 ## 🛠️ MCP Tools Reference
 
-### Browser Management
+### Browser Management Tools (4)
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `start_browser` | Start new browser session | `browser`, `options` |
-| `close_session` | Close browser session | `session_id` (optional) |
-| `get_session_info` | Get active session information | None |
-| `health_check` | Server health status | None |
+| `selenium_start_browser` | Start new browser session | `browser_type`, `headless`, `window_size` |
+| `selenium_stop_browser` | Close browser session | `browser_id` (optional) |
+| `selenium_list_browsers` | List all active browser sessions | None |
+| `selenium_switch_browser` | Switch to different browser session | `browser_id` |
 
-### Navigation & Page Operations
+### Navigation Tools (5)
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `navigate` | Navigate to URL | `url` |
-| `get_current_url` | Get current page URL | None |
-| `refresh_page` | Refresh current page | None |
-| `go_back` | Navigate back in history | None |
-| `go_forward` | Navigate forward in history | None |
-| `get_page_title` | Get page title | None |
-| `get_page_source` | Get page HTML source | None |
+| `selenium_navigate` | Navigate to URL | `url` |
+| `selenium_get_current_url` | Get current page URL | None |
+| `selenium_go_back` | Navigate back in history | None |
+| `selenium_go_forward` | Navigate forward in history | None |
+| `selenium_refresh` | Refresh current page | None |
 
-### Element Interactions
+### Element Interaction Tools (6)
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `find_element` | Find single element | `by`, `value`, `timeout` |
-| `find_elements` | Find multiple elements | `by`, `value`, `timeout` |
-| `click_element` | Click element | `by`, `value`, `timeout` |
-| `double_click_element` | Double-click element | `by`, `value`, `timeout` |
-| `right_click_element` | Right-click element | `by`, `value`, `timeout` |
-| `send_keys` | Send text to element | `by`, `value`, `text`, `clear_first` |
-| `clear_element` | Clear element content | `by`, `value`, `timeout` |
-| `hover` | Hover over element | `by`, `value`, `timeout` |
+| `selenium_find_element` | Find single element | `strategy`, `value` |
+| `selenium_click` | Click element | `strategy`, `value` |
+| `selenium_type` | Type text into element | `strategy`, `value`, `text` |
+| `selenium_get_text` | Get element text content | `strategy`, `value` |
+| `selenium_get_attribute` | Get element attribute | `strategy`, `value`, `attribute` |
+| `selenium_hover` | Hover over element | `strategy`, `value` |
 
-### Advanced Interactions
+### Advanced Action Tools (3)
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `drag_and_drop` | Drag element to target | `source_by`, `source_value`, `target_by`, `target_value` |
-| `upload_file` | Upload file to input | `by`, `value`, `file_path`, `timeout` |
-| `select_dropdown_option` | Select dropdown option | `by`, `value`, `option_text`, `timeout` |
-| `press_key` | Press keyboard key | `key` |
+| `selenium_execute_script` | Execute JavaScript code | `script` |
+| `selenium_take_screenshot` | Take page screenshot | `filename` (optional) |
+| `selenium_scroll_to_element` | Scroll to element | `strategy`, `value` |
 
-### Data Extraction
+### Wait & File Operations (3)
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `get_element_text` | Get element text content | `by`, `value`, `timeout` |
-| `get_element_attribute` | Get element attribute | `by`, `value`, `attribute`, `timeout` |
+| `selenium_wait_for_element` | Wait for element to appear | `strategy`, `value`, `timeout` |
+| `selenium_upload_file` | Upload file to input element | `strategy`, `value`, `file_path` |
+| `selenium_download_file` | Download file from URL | `url`, `filename` (optional) |
 
-### Wait Operations
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `wait_for_element` | Wait for element condition | `by`, `value`, `timeout`, `condition` |
-| `wait_for_page_load` | Wait for page to load | `timeout` |
-
-### JavaScript & Screenshots
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `execute_script` | Execute JavaScript | `script` |
-| `execute_async_script` | Execute async JavaScript | `script`, `timeout` |
-| `take_screenshot` | Take page screenshot | `output_path` (optional) |
-| `take_element_screenshot` | Take element screenshot | `by`, `value`, `output_path`, `timeout` |
+**Total: 21 Tools** - All built with modern FastMCP framework for optimal performance and reliability.
 
 ### Locator Strategies
 Supported element locator strategies:
 - `id` - Element ID
-- `css` - CSS selector
+- `css_selector` - CSS selector  
 - `xpath` - XPath expression
 - `name` - Element name attribute
-- `tag` - HTML tag name
-- `class` - CSS class name
+- `tag_name` - HTML tag name
+- `class_name` - CSS class name
 - `link_text` - Exact link text
 - `partial_link_text` - Partial link text
+
+**Note:** All strategies follow Selenium WebDriver standards and are automatically converted internally for compatibility.
 
 ## ⚙️ Configuration
 
@@ -1376,65 +1390,73 @@ SELENIUM_SCREENSHOT_FORMAT=png
 
 ### Web Scraping
 ```python
-# Extract product data from e-commerce site
+# Extract product data from e-commerce site (using FastMCP tools)
 def scrape_products():
-    start_browser("chrome", {"headless": True})
-    navigate("https://shop.example.com/products")
+    selenium_start_browser(browser_type="chrome", headless=True)
+    selenium_navigate("https://shop.example.com/products")
     
-    products = find_elements("css", ".product-item")
-    for i in range(products["elements_found"]):
-        name = get_element_text("css", f".product-item:nth-child({i+1}) .name")
-        price = get_element_text("css", f".product-item:nth-child({i+1}) .price")
-        print(f"Product: {name['text']}, Price: {price['text']}")
+    # Get product names and prices
+    for i in range(1, 6):  # First 5 products
+        name = selenium_get_text("css_selector", f".product-item:nth-child({i}) .name")
+        price = selenium_get_text("css_selector", f".product-item:nth-child({i}) .price")
+        if name["success"] and price["success"]:
+            print(f"Product: {name['text']}, Price: {price['text']}")
     
-    close_session()
+    selenium_stop_browser()
 ```
 
 ### Form Automation
 ```python
-# Complete user registration
+# Complete user registration (using FastMCP tools)
 def register_user(user_data):
-    start_browser("chrome")
-    navigate("https://app.example.com/register")
+    selenium_start_browser(browser_type="chrome")
+    selenium_navigate("https://app.example.com/register")
     
-    send_keys("id", "firstName", user_data["first_name"])
-    send_keys("id", "lastName", user_data["last_name"])
-    send_keys("id", "email", user_data["email"])
-    select_dropdown_option("id", "country", user_data["country"])
-    click_element("id", "submitButton")
+    selenium_type("id", "firstName", user_data["first_name"])
+    selenium_type("id", "lastName", user_data["last_name"])
+    selenium_type("id", "email", user_data["email"])
+    selenium_click("id", "country")  # Open dropdown
+    selenium_click("xpath", f"//option[text()='{user_data['country']}']")
+    selenium_click("id", "submitButton")
     
     # Wait for confirmation
-    wait_for_element("css", ".success-message", timeout=10000)
-    close_session()
+    result = selenium_wait_for_element("css_selector", ".success-message", timeout=10)
+    if result["success"]:
+        print("Registration successful!")
+    
+    selenium_stop_browser()
 ```
 
 ### Testing Workflows
 ```python
-# E2E testing scenario
+# E2E testing scenario (using FastMCP tools)
 def test_checkout_flow():
-    start_browser("chrome", {"headless": False})
+    selenium_start_browser(browser_type="chrome", headless=False)
     
     # Login
-    navigate("https://store.example.com/login")
-    send_keys("id", "username", "testuser@example.com")
-    send_keys("id", "password", "testpass123")
-    click_element("id", "loginButton")
+    selenium_navigate("https://store.example.com/login")
+    selenium_type("id", "username", "testuser@example.com")
+    selenium_type("id", "password", "testpass123")
+    selenium_click("id", "loginButton")
     
     # Add product to cart
-    navigate("https://store.example.com/products/laptop")
-    click_element("css", ".add-to-cart")
+    selenium_navigate("https://store.example.com/products/laptop")
+    selenium_click("css_selector", ".add-to-cart")
     
     # Checkout
-    click_element("css", ".cart-icon")
-    click_element("css", ".checkout-button")
+    selenium_click("css_selector", ".cart-icon")
+    selenium_click("css_selector", ".checkout-button")
     
     # Fill shipping info
-    send_keys("id", "shippingAddress", "123 Test St")
-    send_keys("id", "shippingCity", "Test City")
+    selenium_type("id", "shippingAddress", "123 Test St")
+    selenium_type("id", "shippingCity", "Test City")
     
     # Take screenshot for verification
-    take_screenshot("checkout_final.png")
-    close_session()
+    screenshot_result = selenium_take_screenshot("checkout_final.png")
+    if screenshot_result["success"]:
+        print(f"Screenshot saved: {screenshot_result['filename']}")
+    
+    selenium_stop_browser()
 ```
 
 ## 🔧 Development
@@ -1442,26 +1464,34 @@ def test_checkout_flow():
 ### Project Structure
 ```
 selenium-mcp-server/
-├── selenium_mcp_server.py      # Main server implementation
+├── selenium_mcp_server/        # Main package directory
+│   ├── __init__.py            # Package initialization
+│   ├── main.py                # FastMCP server implementation  
+│   └── browser_manager.py     # Browser session management
 ├── config/
 │   ├── __init__.py
-│   └── server_config.py        # Configuration management
+│   └── server_config.py       # Configuration management
 ├── examples/
 │   ├── __init__.py
-│   ├── web_scraping.py         # Web scraping examples
-│   ├── form_automation.py      # Form automation examples
-│   └── testing_workflows.py    # QA testing examples
+│   ├── web_scraping.py        # Web scraping examples
+│   ├── form_automation.py     # Form automation examples
+│   └── testing_workflows.py   # QA testing examples
 ├── tests/
 │   ├── __init__.py
-│   ├── test_server.py          # Unit tests
-│   └── test_integration.py     # Integration tests
-├── requirements.txt            # Dependencies
-├── pyproject.toml             # Modern Python packaging
-└── README.md                  # This file
+│   ├── test_server.py         # Unit tests
+│   └── test_integration.py    # Integration tests
+├── requirements.txt           # Dependencies with FastMCP
+├── pyproject.toml            # Modern Python packaging
+├── setup.py                  # Legacy setup for compatibility
+├── main.py                   # Simple entry point
+└── README.md                 # This file
 ```
 
 ### Running Tests
 ```bash
+# Activate virtual environment first
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
 # Unit tests only
 pytest tests/test_server.py -v
 
@@ -1470,6 +1500,9 @@ pytest tests/test_integration.py -v
 
 # All tests with coverage
 pytest --cov=selenium_mcp_server --cov-report=html
+
+# Test the FastMCP implementation
+python -c "from selenium_mcp_server.main import mcp; print('FastMCP server works!')"
 
 # Skip integration tests
 SKIP_INTEGRATION_TESTS=true pytest
@@ -1480,17 +1513,20 @@ TEST_BROWSER=firefox pytest tests/test_integration.py
 
 ### Code Quality
 ```bash
+# Activate virtual environment
+source .venv/bin/activate
+
 # Format code
-black selenium_mcp_server.py config/ tests/ examples/
+black selenium_mcp_server/ config/ tests/ examples/
 
 # Sort imports
-isort selenium_mcp_server.py config/ tests/ examples/
+isort selenium_mcp_server/ config/ tests/ examples/
 
 # Type checking
-mypy selenium_mcp_server.py config/
+mypy selenium_mcp_server/ config/
 
 # Linting
-flake8 selenium_mcp_server.py config/ tests/ examples/
+flake8 selenium_mcp_server/ config/ tests/ examples/
 ```
 
 ## 🔒 Security Considerations
@@ -1568,11 +1604,14 @@ git clone https://github.com/yourusername/selenium-mcp-server.git
 cd selenium-mcp-server
 
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+python -m venv .venv
+source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
 
-# Install development dependencies
-pip install -e ".[dev,test,yaml]"
+# Install dependencies
+pip install -r requirements.txt
+
+# Verify FastMCP installation
+python -c "from selenium_mcp_server.main import mcp; print('FastMCP development setup complete!')"
 
 # Run tests
 pytest

@@ -1,25 +1,11 @@
 """
-Main MCP server for Selenium automation.
+Main MCP server for Selenium automation using FastMCP.
 """
 
 import asyncio
-import json
 import logging
 from typing import Any, Dict, List, Optional
-from mcp.server import Server
-from mcp.server.models import InitializationOptions
-from mcp.server.stdio import stdio_server
-from mcp.types import (
-    CallToolRequest,
-    CallToolResult,
-    ListToolsRequest,
-    ListToolsResult,
-    Tool,
-    TextContent,
-    ImageContent,
-    EmbeddedResource,
-    LoggingLevel
-)
+from fastmcp import FastMCP
 
 from .browser_manager import BrowserManager
 
@@ -30,1064 +16,854 @@ logger = logging.getLogger(__name__)
 # Global browser manager instance
 browser_manager = BrowserManager()
 
-# MCP Server instance
-server = Server("selenium-mcp-server")
+# Create FastMCP app
+mcp = FastMCP("selenium-mcp-server")
 
-@server.list_tools()
-async def handle_list_tools() -> ListToolsResult:
-    """List available tools."""
-    tools = [
-        # Browser Management
-        Tool(
-            name="selenium_start_browser",
-            description="Start a new browser session",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "browser_type": {
-                        "type": "string",
-                        "enum": ["chrome", "firefox", "edge", "safari"],
-                        "default": "chrome",
-                        "description": "Type of browser to start"
-                    },
-                    "headless": {
-                        "type": "boolean",
-                        "default": False,
-                        "description": "Run browser in headless mode"
-                    },
-                    "window_size": {
-                        "type": "array",
-                        "items": {"type": "integer"},
-                        "default": [1920, 1080],
-                        "description": "Window size as [width, height]"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="selenium_stop_browser",
-            description="Stop the current browser session",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "browser_id": {
-                        "type": "string",
-                        "description": "Browser ID to stop (optional, stops current if not provided)"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="selenium_list_browsers",
-            description="List all active browser sessions",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="selenium_switch_browser",
-            description="Switch to a different browser session",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "browser_id": {
-                        "type": "string",
-                        "description": "Browser ID to switch to"
-                    }
-                },
-                "required": ["browser_id"]
-            }
-        ),
-        
-        # Navigation
-        Tool(
-            name="selenium_navigate",
-            description="Navigate to a URL",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "URL to navigate to"
-                    }
-                },
-                "required": ["url"]
-            }
-        ),
-        Tool(
-            name="selenium_go_back",
-            description="Go back in browser history",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="selenium_go_forward",
-            description="Go forward in browser history",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="selenium_refresh",
-            description="Refresh the current page",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="selenium_get_current_url",
-            description="Get the current URL",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        
-        # Element Interaction
-        Tool(
-            name="selenium_find_element",
-            description="Find an element using various locator strategies",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        Tool(
-            name="selenium_click",
-            description="Click an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        Tool(
-            name="selenium_type",
-            description="Type text into an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    },
-                    "text": {
-                        "type": "string",
-                        "description": "Text to type"
-                    }
-                },
-                "required": ["strategy", "value", "text"]
-            }
-        ),
-        Tool(
-            name="selenium_get_text",
-            description="Get text content from an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        Tool(
-            name="selenium_get_attribute",
-            description="Get an attribute value from an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    },
-                    "attribute": {
-                        "type": "string",
-                        "description": "Attribute name to get"
-                    }
-                },
-                "required": ["strategy", "value", "attribute"]
-            }
-        ),
-        Tool(
-            name="selenium_hover",
-            description="Hover over an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        
-        # Advanced Actions
-        Tool(
-            name="selenium_execute_script",
-            description="Execute JavaScript code",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "script": {
-                        "type": "string",
-                        "description": "JavaScript code to execute"
-                    }
-                },
-                "required": ["script"]
-            }
-        ),
-        Tool(
-            name="selenium_take_screenshot",
-            description="Take a screenshot",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "filename": {
-                        "type": "string",
-                        "description": "Filename to save screenshot (optional)"
-                    }
-                }
-            }
-        ),
-        Tool(
-            name="selenium_wait_for_element",
-            description="Wait for an element to appear",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    },
-                    "timeout": {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Timeout in seconds"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        Tool(
-            name="selenium_scroll_to_element",
-            description="Scroll to an element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    }
-                },
-                "required": ["strategy", "value"]
-            }
-        ),
-        
-        # File Operations
-        Tool(
-            name="selenium_upload_file",
-            description="Upload a file to an input element",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["id", "name", "class_name", "tag_name", "css_selector", "xpath", "link_text", "partial_link_text"],
-                        "description": "Locator strategy to use"
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value to search for"
-                    },
-                    "file_path": {
-                        "type": "string",
-                        "description": "Path to the file to upload"
-                    }
-                },
-                "required": ["strategy", "value", "file_path"]
-            }
-        ),
-        Tool(
-            name="selenium_download_file",
-            description="Download a file from a URL",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "URL to download from"
-                    },
-                    "filename": {
-                        "type": "string",
-                        "description": "Filename to save as (optional)"
-                    }
-                },
-                "required": ["url"]
-            }
-        )
-    ]
+
+# Browser Management Tools
+@mcp.tool()
+def selenium_start_browser(
+    browser_type: str = "chrome", 
+    headless: bool = False, 
+    window_size: List[int] = [1920, 1080]
+) -> Dict[str, Any]:
+    """
+    Start a new browser session.
     
-    return ListToolsResult(tools=tools)
-
-@server.call_tool()
-async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle tool calls."""
+    Args:
+        browser_type: Type of browser to start (chrome, firefox, edge, safari)
+        headless: Run browser in headless mode
+        window_size: Window size as [width, height]
+    
+    Returns:
+        Browser session information
+    """
     try:
-        if name == "selenium_start_browser":
-            return await handle_start_browser(arguments)
-        elif name == "selenium_stop_browser":
-            return await handle_stop_browser(arguments)
-        elif name == "selenium_list_browsers":
-            return await handle_list_browsers(arguments)
-        elif name == "selenium_switch_browser":
-            return await handle_switch_browser(arguments)
-        elif name == "selenium_navigate":
-            return await handle_navigate(arguments)
-        elif name == "selenium_go_back":
-            return await handle_go_back(arguments)
-        elif name == "selenium_go_forward":
-            return await handle_go_forward(arguments)
-        elif name == "selenium_refresh":
-            return await handle_refresh(arguments)
-        elif name == "selenium_get_current_url":
-            return await handle_get_current_url(arguments)
-        elif name == "selenium_find_element":
-            return await handle_find_element(arguments)
-        elif name == "selenium_click":
-            return await handle_click(arguments)
-        elif name == "selenium_type":
-            return await handle_type(arguments)
-        elif name == "selenium_get_text":
-            return await handle_get_text(arguments)
-        elif name == "selenium_get_attribute":
-            return await handle_get_attribute(arguments)
-        elif name == "selenium_hover":
-            return await handle_hover(arguments)
-        elif name == "selenium_execute_script":
-            return await handle_execute_script(arguments)
-        elif name == "selenium_take_screenshot":
-            return await handle_take_screenshot(arguments)
-        elif name == "selenium_wait_for_element":
-            return await handle_wait_for_element(arguments)
-        elif name == "selenium_scroll_to_element":
-            return await handle_scroll_to_element(arguments)
-        elif name == "selenium_upload_file":
-            return await handle_upload_file(arguments)
-        elif name == "selenium_download_file":
-            return await handle_download_file(arguments)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Unknown tool: {name}")],
-                isError=True
-            )
+        browser_id = browser_manager.start_browser(
+            browser_type=browser_type,
+            headless=headless,
+            window_size=tuple(window_size)
+        )
+        
+        return {
+            "success": True,
+            "browser_id": browser_id,
+            "message": f"Started {browser_type} browser with ID: {browser_id}"
+        }
     except Exception as e:
-        logger.error(f"Error executing tool {name}: {str(e)}")
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Error: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to start browser: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to start {browser_type} browser"
+        }
 
-# Browser Management Handlers
-async def handle_start_browser(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle start browser tool."""
-    browser_type = arguments.get("browser_type", "chrome")
-    headless = arguments.get("headless", False)
-    window_size = tuple(arguments.get("window_size", [1920, 1080]))
-    
-    browser_id = browser_manager.start_browser(
-        browser_type=browser_type,
-        headless=headless,
-        window_size=window_size
-    )
-    
-    return CallToolResult(
-        content=[TextContent(
-            type="text", 
-            text=f"Started {browser_type} browser with ID: {browser_id}"
-        )]
-    )
 
-async def handle_stop_browser(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle stop browser tool."""
-    browser_id = arguments.get("browser_id")
-    success = browser_manager.stop_browser(browser_id)
+@mcp.tool()
+def selenium_stop_browser(browser_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Stop a browser session.
     
-    if success:
-        return CallToolResult(
-            content=[TextContent(type="text", text="Browser stopped successfully")]
-        )
-    else:
-        return CallToolResult(
-            content=[TextContent(type="text", text="Failed to stop browser")],
-            isError=True
-        )
-
-async def handle_list_browsers(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle list browsers tool."""
-    browsers = browser_manager.list_browsers()
-    result_text = "Active browser sessions:\n"
+    Args:
+        browser_id: Browser ID to stop (current session if not provided)
     
-    for browser_id, info in browsers.items():
-        status = " (current)" if info["is_current"] else ""
-        result_text += f"- {browser_id}: {info['title']} - {info['current_url']}{status}\n"
-    
-    if not browsers:
-        result_text = "No active browser sessions"
-    
-    return CallToolResult(
-        content=[TextContent(type="text", text=result_text)]
-    )
-
-async def handle_switch_browser(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle switch browser tool."""
-    browser_id = arguments["browser_id"]
-    success = browser_manager.switch_browser(browser_id)
-    
-    if success:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Switched to browser: {browser_id}")]
-        )
-    else:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Browser not found: {browser_id}")],
-            isError=True
-        )
-
-# Navigation Handlers
-async def handle_navigate(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle navigate tool."""
-    url = arguments["url"]
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    browser.get(url)
-    return CallToolResult(
-        content=[TextContent(type="text", text=f"Navigated to: {url}")]
-    )
-
-async def handle_go_back(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle go back tool."""
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    browser.back()
-    return CallToolResult(
-        content=[TextContent(type="text", text="Went back in browser history")]
-    )
-
-async def handle_go_forward(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle go forward tool."""
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    browser.forward()
-    return CallToolResult(
-        content=[TextContent(type="text", text="Went forward in browser history")]
-    )
-
-async def handle_refresh(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle refresh tool."""
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    browser.refresh()
-    return CallToolResult(
-        content=[TextContent(type="text", text="Page refreshed")]
-    )
-
-async def handle_get_current_url(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle get current URL tool."""
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    url = browser.current_url
-    return CallToolResult(
-        content=[TextContent(type="text", text=f"Current URL: {url}")]
-    )
-
-# Element Interaction Handlers
-async def handle_find_element(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle find element tool."""
-    browser = browser_manager.get_browser()
-    
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    
+    Returns:
+        Operation result
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
+        success = browser_manager.stop_browser(browser_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Browser stopped successfully"
+            }
         else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
-        
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Element found: {element.tag_name}")]
-        )
-        
+            return {
+                "success": False,
+                "error": "Failed to stop browser",
+                "message": "Browser not found or could not be stopped"
+            }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Element not found: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Error stopping browser: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Error stopping browser"
+        }
 
-async def handle_click(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle click tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_list_browsers() -> Dict[str, Any]:
+    """
+    List all active browser sessions.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
-    
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    
+    Returns:
+        Active browser sessions information
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browsers = browser_manager.list_browsers()
+        return {
+            "success": True,
+            "browsers": browsers,
+            "count": len(browsers)
+        }
+    except Exception as e:
+        logger.error(f"Failed to list browsers: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to list browsers"
+        }
+
+
+@mcp.tool()
+def selenium_switch_browser(browser_id: str) -> Dict[str, Any]:
+    """
+    Switch to a different browser session.
+    
+    Args:
+        browser_id: Browser ID to switch to
+    
+    Returns:
+        Switch operation result
+    """
+    try:
+        success = browser_manager.switch_browser(browser_id)
         
+        if success:
+            return {
+                "success": True,
+                "message": f"Switched to browser: {browser_id}"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Browser not found: {browser_id}",
+                "message": "Could not switch to specified browser"
+            }
+    except Exception as e:
+        logger.error(f"Error switching browser: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Error switching browser"
+        }
+
+
+# Navigation Tools
+@mcp.tool()
+def selenium_navigate(url: str) -> Dict[str, Any]:
+    """
+    Navigate to a URL.
+    
+    Args:
+        url: URL to navigate to
+    
+    Returns:
+        Navigation result
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        browser.get(url)
+        return {
+            "success": True,
+            "url": url,
+            "current_url": browser.current_url,
+            "title": browser.title,
+            "message": f"Navigated to: {url}"
+        }
+    except Exception as e:
+        logger.error(f"Failed to navigate to {url}: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to navigate to {url}"
+        }
+
+
+@mcp.tool()
+def selenium_go_back() -> Dict[str, Any]:
+    """
+    Go back in browser history.
+    
+    Returns:
+        Navigation result
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        browser.back()
+        return {
+            "success": True,
+            "current_url": browser.current_url,
+            "message": "Went back in browser history"
+        }
+    except Exception as e:
+        logger.error(f"Failed to go back: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to go back"
+        }
+
+
+@mcp.tool()
+def selenium_go_forward() -> Dict[str, Any]:
+    """
+    Go forward in browser history.
+    
+    Returns:
+        Navigation result
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        browser.forward()
+        return {
+            "success": True,
+            "current_url": browser.current_url,
+            "message": "Went forward in browser history"
+        }
+    except Exception as e:
+        logger.error(f"Failed to go forward: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to go forward"
+        }
+
+
+@mcp.tool()
+def selenium_refresh() -> Dict[str, Any]:
+    """
+    Refresh the current page.
+    
+    Returns:
+        Refresh result
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        browser.refresh()
+        return {
+            "success": True,
+            "message": "Page refreshed"
+        }
+    except Exception as e:
+        logger.error(f"Failed to refresh page: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to refresh page"
+        }
+
+
+@mcp.tool()
+def selenium_get_current_url() -> Dict[str, Any]:
+    """
+    Get the current URL.
+    
+    Returns:
+        Current URL information
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        url = browser.current_url
+        title = browser.title
+        return {
+            "success": True,
+            "current_url": url,
+            "title": title,
+            "message": f"Current URL: {url}"
+        }
+    except Exception as e:
+        logger.error(f"Failed to get current URL: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to get current URL"
+        }
+
+
+# Element Interaction Tools
+@mcp.tool()
+def selenium_find_element(strategy: str, value: str) -> Dict[str, Any]:
+    """
+    Find an element using various locator strategies.
+    
+    Args:
+        strategy: Locator strategy (id, name, class_name, tag_name, css_selector, xpath, link_text, partial_link_text)
+        value: Value to search for
+    
+    Returns:
+        Element information
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        # Convert strategy names to selenium format
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
+        return {
+            "success": True,
+            "element_found": True,
+            "tag_name": element.tag_name,
+            "text": element.text[:100] if element.text else "",
+            "is_displayed": element.is_displayed(),
+            "is_enabled": element.is_enabled(),
+            "message": f"Element found: {element.tag_name}"
+        }
+    except Exception as e:
+        logger.error(f"Failed to find element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "element_found": False,
+            "error": str(e),
+            "message": f"Element not found: {strategy}='{value}'"
+        }
+
+
+@mcp.tool()
+def selenium_click(strategy: str, value: str) -> Dict[str, Any]:
+    """
+    Click an element.
+    
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
+    
+    Returns:
+        Click result
+    """
+    try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         element.click()
-        return CallToolResult(
-            content=[TextContent(type="text", text="Element clicked successfully")]
-        )
-        
+        return {
+            "success": True,
+            "message": "Element clicked successfully"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to click element: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to click element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to click element: {strategy}='{value}'"
+        }
 
-async def handle_type(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle type tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_type(strategy: str, value: str, text: str) -> Dict[str, Any]:
+    """
+    Type text into an element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
+        text: Text to type
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    text = arguments["text"]
-    
+    Returns:
+        Type result
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         element.clear()
         element.send_keys(text)
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Typed '{text}' into element")]
-        )
-        
+        return {
+            "success": True,
+            "message": f"Typed '{text}' into element"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to type into element: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to type into element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to type into element: {strategy}='{value}'"
+        }
 
-async def handle_get_text(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle get text tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_get_text(strategy: str, value: str) -> Dict[str, Any]:
+    """
+    Get text content from an element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    
+    Returns:
+        Element text
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         text = element.text
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Element text: {text}")]
-        )
-        
+        return {
+            "success": True,
+            "text": text,
+            "length": len(text),
+            "message": f"Element text: {text[:50]}{'...' if len(text) > 50 else ''}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to get element text: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to get text from element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to get text from element: {strategy}='{value}'"
+        }
 
-async def handle_get_attribute(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle get attribute tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_get_attribute(strategy: str, value: str, attribute: str) -> Dict[str, Any]:
+    """
+    Get an attribute value from an element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
+        attribute: Attribute name to get
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    attribute = arguments["attribute"]
-    
+    Returns:
+        Attribute value
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         attr_value = element.get_attribute(attribute)
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Attribute '{attribute}': {attr_value}")]
-        )
-        
+        return {
+            "success": True,
+            "attribute": attribute,
+            "value": attr_value,
+            "message": f"Attribute '{attribute}': {attr_value}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to get attribute: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to get attribute from element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to get attribute from element: {strategy}='{value}'"
+        }
 
-async def handle_hover(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle hover tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_hover(strategy: str, value: str) -> Dict[str, Any]:
+    """
+    Hover over an element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    
+    Returns:
+        Hover result
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         
         from selenium.webdriver.common.action_chains import ActionChains
         ActionChains(browser).move_to_element(element).perform()
-        return CallToolResult(
-            content=[TextContent(type="text", text="Hovered over element")]
-        )
-        
+        return {
+            "success": True,
+            "message": "Hovered over element"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to hover over element: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to hover over element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to hover over element: {strategy}='{value}'"
+        }
 
-# Advanced Actions Handlers
-async def handle_execute_script(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle execute script tool."""
-    browser = browser_manager.get_browser()
+
+# Advanced Actions Tools
+@mcp.tool()
+def selenium_execute_script(script: str) -> Dict[str, Any]:
+    """
+    Execute JavaScript code.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        script: JavaScript code to execute
     
-    script = arguments["script"]
-    
+    Returns:
+        Script execution result
+    """
     try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
         result = browser.execute_script(script)
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Script executed. Result: {result}")]
-        )
-        
+        return {
+            "success": True,
+            "result": result,
+            "script": script[:100] + ("..." if len(script) > 100 else ""),
+            "message": f"Script executed. Result: {result}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to execute script: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to execute script: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to execute script"
+        }
 
-async def handle_take_screenshot(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle take screenshot tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_take_screenshot(filename: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Take a screenshot.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        filename: Filename to save screenshot (optional)
     
-    filename = arguments.get("filename", f"screenshot_{browser_manager.current_browser_id}.png")
-    
+    Returns:
+        Screenshot result
+    """
     try:
-        screenshot_path = browser.get_screenshot_as_file(filename)
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Screenshot saved to: {screenshot_path}")]
-        )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        if not filename:
+            filename = f"screenshot_{browser_manager.current_browser_id}.png"
+        
+        success = browser.save_screenshot(filename)
+        if success:
+            return {
+                "success": True,
+                "filename": filename,
+                "message": f"Screenshot saved to: {filename}"
+            }
+        else:
+            return {
+                "success": False,
+                "error": "Failed to save screenshot",
+                "message": "Screenshot could not be saved"
+            }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to take screenshot: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to take screenshot: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to take screenshot"
+        }
 
-async def handle_wait_for_element(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle wait for element tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_wait_for_element(strategy: str, value: str, timeout: int = 10) -> Dict[str, Any]:
+    """
+    Wait for an element to appear.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
+        timeout: Timeout in seconds
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    timeout = arguments.get("timeout", 10)
-    
+    Returns:
+        Wait result
+    """
     try:
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
+        
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
         
+        # Convert strategy to By constant
+        by_map = {
+            "id": By.ID,
+            "name": By.NAME,
+            "class_name": By.CLASS_NAME,
+            "tag_name": By.TAG_NAME,
+            "css_selector": By.CSS_SELECTOR,
+            "xpath": By.XPATH,
+            "link_text": By.LINK_TEXT,
+            "partial_link_text": By.PARTIAL_LINK_TEXT
+        }
+        
+        by_locator = by_map.get(strategy)
+        if not by_locator:
+            return {
+                "success": False,
+                "error": f"Invalid strategy: {strategy}",
+                "message": "Unsupported locator strategy"
+            }
+        
         wait = WebDriverWait(browser, timeout)
+        element = wait.until(EC.presence_of_element_located((by_locator, value)))
         
-        if strategy == "id":
-            element = wait.until(EC.presence_of_element_located((By.ID, value)))
-        elif strategy == "name":
-            element = wait.until(EC.presence_of_element_located((By.NAME, value)))
-        elif strategy == "class_name":
-            element = wait.until(EC.presence_of_element_located((By.CLASS_NAME, value)))
-        elif strategy == "tag_name":
-            element = wait.until(EC.presence_of_element_located((By.TAG_NAME, value)))
-        elif strategy == "css_selector":
-            element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, value)))
-        elif strategy == "xpath":
-            element = wait.until(EC.presence_of_element_located((By.XPATH, value)))
-        elif strategy == "link_text":
-            element = wait.until(EC.presence_of_element_located((By.LINK_TEXT, value)))
-        elif strategy == "partial_link_text":
-            element = wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT, value)))
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
-        
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Element found after waiting: {element.tag_name}")]
-        )
-        
+        return {
+            "success": True,
+            "element_found": True,
+            "tag_name": element.tag_name,
+            "text": element.text[:100] if element.text else "",
+            "message": f"Element found after waiting: {element.tag_name}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Element not found within timeout: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Element not found within timeout {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "element_found": False,
+            "error": str(e),
+            "message": f"Element not found within {timeout}s: {strategy}='{value}'"
+        }
 
-async def handle_scroll_to_element(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle scroll to element tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_scroll_to_element(strategy: str, value: str) -> Dict[str, Any]:
+    """
+    Scroll to an element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    
+    Returns:
+        Scroll result
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         browser.execute_script("arguments[0].scrollIntoView(true);", element)
-        return CallToolResult(
-            content=[TextContent(type="text", text="Scrolled to element")]
-        )
-        
+        return {
+            "success": True,
+            "message": "Scrolled to element"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to scroll to element: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to scroll to element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to scroll to element: {strategy}='{value}'"
+        }
 
-# File Operations Handlers
-async def handle_upload_file(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle upload file tool."""
-    browser = browser_manager.get_browser()
+
+# File Operations Tools
+@mcp.tool()
+def selenium_upload_file(strategy: str, value: str, file_path: str) -> Dict[str, Any]:
+    """
+    Upload a file to an input element.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        strategy: Locator strategy
+        value: Value to search for
+        file_path: Path to the file to upload
     
-    strategy = arguments["strategy"]
-    value = arguments["value"]
-    file_path = arguments["file_path"]
-    
+    Returns:
+        Upload result
+    """
     try:
-        if strategy == "id":
-            element = browser.find_element("id", value)
-        elif strategy == "name":
-            element = browser.find_element("name", value)
-        elif strategy == "class_name":
-            element = browser.find_element("class name", value)
-        elif strategy == "tag_name":
-            element = browser.find_element("tag name", value)
-        elif strategy == "css_selector":
-            element = browser.find_element("css selector", value)
-        elif strategy == "xpath":
-            element = browser.find_element("xpath", value)
-        elif strategy == "link_text":
-            element = browser.find_element("link text", value)
-        elif strategy == "partial_link_text":
-            element = browser.find_element("partial link text", value)
-        else:
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Invalid strategy: {strategy}")],
-                isError=True
-            )
+        browser = browser_manager.get_browser()
+        if not browser:
+            return {
+                "success": False,
+                "error": "No active browser session",
+                "message": "Start a browser session first"
+            }
         
+        # Convert strategy names
+        strategy_map = {
+            "class_name": "class name",
+            "tag_name": "tag name", 
+            "css_selector": "css selector",
+            "link_text": "link text",
+            "partial_link_text": "partial link text"
+        }
+        selenium_strategy = strategy_map.get(strategy, strategy)
+        
+        element = browser.find_element(selenium_strategy, value)
         element.send_keys(file_path)
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"File uploaded: {file_path}")]
-        )
-        
+        return {
+            "success": True,
+            "file_path": file_path,
+            "message": f"File uploaded: {file_path}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to upload file: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to upload file to element {strategy}='{value}': {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to upload file: {file_path}"
+        }
 
-async def handle_download_file(arguments: Dict[str, Any]) -> CallToolResult:
-    """Handle download file tool."""
-    browser = browser_manager.get_browser()
+
+@mcp.tool()
+def selenium_download_file(url: str, filename: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Download a file from a URL.
     
-    if not browser:
-        return CallToolResult(
-            content=[TextContent(type="text", text="No active browser session")],
-            isError=True
-        )
+    Args:
+        url: URL to download from
+        filename: Filename to save as (optional)
     
-    url = arguments["url"]
-    filename = arguments.get("filename")
-    
+    Returns:
+        Download result
+    """
     try:
         import requests
         import os
@@ -1096,36 +872,40 @@ async def handle_download_file(arguments: Dict[str, Any]) -> CallToolResult:
         response.raise_for_status()
         
         if not filename:
-            filename = os.path.basename(url)
+            filename = os.path.basename(url) or "downloaded_file"
         
         with open(filename, 'wb') as f:
             f.write(response.content)
         
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"File downloaded: {filename}")]
-        )
-        
+        return {
+            "success": True,
+            "url": url,
+            "filename": filename,
+            "size": len(response.content),
+            "message": f"File downloaded: {filename}"
+        }
     except Exception as e:
-        return CallToolResult(
-            content=[TextContent(type="text", text=f"Failed to download file: {str(e)}")],
-            isError=True
-        )
+        logger.error(f"Failed to download file from {url}: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to download file from: {url}"
+        }
 
-async def main():
+
+def main():
     """Main entry point."""
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="selenium-mcp-server",
-                server_version="1.0.0",
-                capabilities=server.get_capabilities(
-                    notification_options=None,
-                    experimental_capabilities={}
-                )
-            )
-        )
+    try:
+        logger.info("Starting Selenium MCP Server with FastMCP")
+        mcp.run()
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+        browser_manager.stop_all_browsers()
+    except Exception as e:
+        logger.error(f"Server error: {str(e)}")
+        browser_manager.stop_all_browsers()
+        raise
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

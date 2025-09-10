@@ -1,6 +1,6 @@
 # Core MCP dependencies
-mcp>=1.0.0
-fastmcp>=0.9.0
+mcp>=0.1.0
+fastmcp>=2.10.3
 
 # Selenium WebDriver
 selenium>=4.15.0
